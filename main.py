@@ -119,11 +119,6 @@ def jogo_acabou(matriz):
             elif col == 2:
                 pos_amarelos.append((lin_idx, col_idx))
 
-    if len(pos_vermelhos) >= 4 and possui_diagonal(pos_vermelhos):
-        resultado = (True, 1)
-    elif len(pos_amarelos) >= 4 and possui_diagonal(pos_amarelos):
-        resultado = (True, 1)
-
     return resultado
 
 

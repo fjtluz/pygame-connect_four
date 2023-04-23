@@ -1,4 +1,6 @@
-# Example file showing a basic pygame "game loop"
+import random
+import math
+
 import pygame
 
 
@@ -15,7 +17,7 @@ def monta_tabuleiro(screen):
         top_row_start.y += (screen.get_height() / 7) + 2.5
         top_row_end.y += (screen.get_height() / 7) + 2.5
 
-    for i in range (8):
+    for i in range(8):
         pygame.draw.line(screen, "black", left_column_start, left_column_end, 20)
         left_column_start.x += (screen.get_width() / 8) + 10
         left_column_end.x += (screen.get_width() / 8) + 10
@@ -60,106 +62,77 @@ def monta_intervalos(start, size):
     return intervalo
 
 
-def jogo_acabou(matriz):
+def jogo_acabou(matriz: list[list[int]]):
 
     resultado = (False, -1)
 
-    matriz_pos_vermelho = []
-    matriz_pos_amarelo = []
+    colunas_potencial_vermelho = [[], [], [], [], [], [], []]
+    colunas_potencial_amarelo = [[], [], [], [], [], [], []]
 
-    # Verifica quatro na mesma linha
-    for lin in matriz:
-        pos_vermelhos = []
-        pos_amarelos = []
-        if lin.count(1) >= 4 or lin.count(2) >= 4:
-            for (col_idx, col) in enumerate(lin):
-                if col == 1:
-                    pos_vermelhos.append(col_idx)
-                elif col == 2:
-                    pos_amarelos.append(col_idx)
-        matriz_pos_vermelho.append(pos_vermelhos)
-        matriz_pos_amarelo.append(pos_amarelos)
+    crescentes_potencial_vermelho = [[], [], [], [], [], []]
+    crescentes_potencial_amarelo = [[], [], [], [], [], []]
 
-    # valida colunas
-    for i in range(len(matriz)):
-        vermelho_atual = matriz_pos_vermelho[i]
-        amarelo_atual = matriz_pos_amarelo[i]
+    decrescentes_potencial_vermelho = [[], [], [], [], [], []]
+    decrescentes_potencial_amarelo = [[], [], [], [], [], []]
 
-        if len(vermelho_atual) >= 4 and possui_quatro_seguidos(vermelho_atual):
-            resultado = (True, 1)
-            break
-        elif len(amarelo_atual) >= 4 and possui_quatro_seguidos(amarelo_atual):
-            resultado = (True, 2)
-            break
+    idx_lin = len(matriz) - 1
+    while idx_lin >= 0:
+        if not resultado[0]:
+            lin = matriz[idx_lin]
+            linha_potencial_vermelho = []
+            linha_potencial_amarelo = []
+            for idx_cel, cel in enumerate(lin):
 
-    # valida linhas
-    for j in range(len(matriz[0])):
-        pos_vermelhos = []
-        pos_amarelos = []
-        for (lin_idx, lin) in enumerate(matriz):
-            if lin[j] == 1:
-                pos_vermelhos.append(lin_idx)
-            elif lin[j] == 2:
-                pos_amarelos.append(lin_idx)
-        if len(pos_vermelhos) >= 4 and possui_quatro_seguidos(pos_vermelhos):
-            resultado = (True, 1)
-            break
-        elif len(pos_amarelos) >= 4 and possui_quatro_seguidos(pos_amarelos):
-            resultado = (True, 2)
-            break
+                idx_grid = idx_lin * 10 + idx_cel
+                idx_cres = (idx_grid - 30) % 9
+                idx_decr = ((idx_grid - 30) % 11) - 1
 
-    # valida diagonais
-    pos_vermelhos = []
-    pos_amarelos = []
+                if cel == 1:
+                    linha_potencial = linha_potencial_vermelho
+                    coluna_potencial = colunas_potencial_vermelho[idx_cel]
+                    crescente_potencial = crescentes_potencial_vermelho[idx_cres] if 6 > idx_cres >= 0 else None
+                    decrescente_potencial = decrescentes_potencial_vermelho[idx_decr] if 6 > idx_decr >= 0 else None
+                elif cel == 2:
+                    linha_potencial = linha_potencial_amarelo
+                    coluna_potencial = colunas_potencial_amarelo[idx_cel]
+                    crescente_potencial = crescentes_potencial_amarelo[idx_cres] if 6 > idx_cres >= 0 else None
+                    decrescente_potencial = decrescentes_potencial_amarelo[idx_decr] if 6 > idx_decr >= 0 else None
+                else:
+                    continue
 
-    for (lin_idx, lin) in enumerate(matriz):
-        for (col_idx, col) in enumerate(lin):
-            if col == 1:
-                pos_vermelhos.append((lin_idx, col_idx))
-            elif col == 2:
-                pos_amarelos.append((lin_idx, col_idx))
+                linha_possui_quatro = possui_quatro_seguidos(linha_potencial, idx_cel, 1)
+                coluna_possui_quatro = possui_quatro_seguidos(coluna_potencial, idx_lin, -1)
+                cres_possui_quatro = possui_quatro_seguidos(crescente_potencial, idx_grid, -9)
+                decrescente_potencial = possui_quatro_seguidos(decrescente_potencial, idx_grid, -11)
+
+                if linha_possui_quatro or coluna_possui_quatro or cres_possui_quatro or decrescente_potencial:
+                    resultado = (True, cel)
+                    break
+        idx_lin -= 1
 
     return resultado
 
 
-def possui_diagonal(posicoes):
+def possui_quatro_seguidos(ref_list, index_atual, diferenca):
+    if ref_list is None:
+        return False
 
-    diagonal_potencial_crescente = []
-    diagonal_potencial_descrecente = []
+    if len(ref_list):
+        ultimo_index = ref_list[len(ref_list) - 1]
+        if index_atual - ultimo_index != diferenca:
+            ref_list.clear()
+    ref_list.append(index_atual)
 
-    if len(posicoes) >= 4:
-        idx = len(posicoes) - 1
-        while idx >= 0:
-            print(diagonal_potencial_crescente)
-            if len(diagonal_potencial_crescente) == 4:
-                break
-            if len(diagonal_potencial_crescente) > 0:
-                ultimo_item = diagonal_potencial_crescente[len(diagonal_potencial_crescente) - 1]
-                dif_lin = posicoes[idx][0] - posicoes[idx][0]
-                dif_col = posicoes[idx][1] - ultimo_item[1]
-                if dif_col != -1 or dif_lin != -1:
-                    diagonal_potencial_crescente = []
-            diagonal_potencial_crescente.append(posicoes[idx])
-
-    return len(diagonal_potencial_crescente) == 4
+    return len(ref_list) == 4
 
 
+def decide_coluna(matriz):
+    coluna_selecionada = math.floor(random.random() * 7)
 
-def possui_quatro_seguidos(array):
-    sequencia_promissora = []
+    return coluna_selecionada
 
-    for i in array:
-        if len(sequencia_promissora) == 4:
-            break
-        if len(sequencia_promissora) > 0:
-            ultimo_item = sequencia_promissora[len(sequencia_promissora) - 1]
-            if i - ultimo_item != 1:
-                sequencia_promissora = []
-        sequencia_promissora.append(i)
 
-    return len(sequencia_promissora) == 4
-
-def start():
+def start_game():
 
     matriz = [
         [0, 0, 0, 0, 0, 0, 0],
@@ -191,7 +164,9 @@ def start():
     font = pygame.font.SysFont("Comic Sans MS", 30)
     texto_base = font.render("JOGADOR ATUAL:", False, "white")
     jogador_atual_texto = font.render("VERMELHO", False, "red")
-    jogador_atual = 1 # 1 - Vermelho, 2 - Amarelo
+
+    # 1 - Vermelho, 2 - Amarelo
+    jogador_atual = 1
 
     # boolean para caso o click do mouse já foi tratado
     validate_press = False
@@ -218,39 +193,40 @@ def start():
         screen.blit(jogador_atual_texto, pygame.Vector2(texto_base.get_width() + 15, 10))
 
         monta_tabuleiro(screen)
-
         imprime_pecas(screen, matriz, intervalo_colunas, intervalo_linhas)
 
-        state_mouse = pygame.mouse.get_pressed(num_buttons=3)
+        # Jogador
+        if jogador_atual == 1:
+            state_mouse = pygame.mouse.get_pressed(num_buttons=3)
 
-        if state_mouse[0] and not validate_press:
-            validate_press = True
-            current_pos = pygame.mouse.get_pos()
-            if current_pos[1] < 50:
-                coluna_selecionada = -1
-                for (idx, intevalo) in enumerate(intervalo_colunas):
-                    if intevalo[0] <= current_pos[0] <= intevalo[1]:
-                        coluna_selecionada = idx
-                        break
-                if coluna_selecionada != -1:
-                    pos_adicionada = adiciona_peca(matriz, coluna_selecionada, jogador_atual)
-                    if pos_adicionada != (-1, -1):
-                        if jogador_atual == 1:
+            if state_mouse[0] and not validate_press:
+                validate_press = True
+                current_pos = pygame.mouse.get_pos()
+                if current_pos[1] < 50:
+                    coluna_selecionada = -1
+                    for (idx, intevalo) in enumerate(intervalo_colunas):
+                        if intevalo[0] <= current_pos[0] <= intevalo[1]:
+                            coluna_selecionada = idx
+                            break
+                    if coluna_selecionada != -1:
+                        pos_adicionada = adiciona_peca(matriz, coluna_selecionada, jogador_atual)
+                        if pos_adicionada != (-1, -1):
                             jogador_atual = 2
                             jogador_atual_texto = font.render("AMARELO", False, "yellow")
-                        else:
-                            jogador_atual = 1
-                            jogador_atual_texto = font.render("VERMELHO", False, "red")
-        elif not state_mouse[0]:
-            validate_press = False
+            elif not state_mouse[0]:
+                validate_press = False
+        # IA
+        elif jogador_atual == 2:
+            coluna_selecionada = decide_coluna(matriz)
+            pos_adicionada = adiciona_peca(matriz, coluna_selecionada, jogador_atual)
+            if pos_adicionada != (-1, -1):
+                jogador_atual = 1
+                jogador_atual_texto = font.render("VERMELHO", False, "red")
 
         # flip() the display to put your work on screen
         pygame.display.flip()
 
-        # limits FPS to 60
-        # dt is delta time in seconds since last frame, used for framerate-
-        # independent physics.
-        dt = clock.tick(60) / 1000
+        clock.tick(10)
 
     print(f"Ganhador: {ganhador}")
 
@@ -258,5 +234,4 @@ def start():
 
 
 if __name__ == '__main__':
-    start()
-
+    start_game()

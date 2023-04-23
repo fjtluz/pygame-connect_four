@@ -83,9 +83,9 @@ def jogo_acabou(matriz: list[list[int]]):
             linha_potencial_amarelo = []
             for idx_cel, cel in enumerate(lin):
 
-                idx_grid = idx_lin * 10 + idx_cel
-                idx_cres = (idx_grid - 30) % 9
-                idx_decr = ((idx_grid - 30) % 11) - 1
+                grid_idx = idx_lin * 10 + idx_cel
+                idx_cres = (grid_idx - 30) % 9
+                idx_decr = ((grid_idx - 30) % 11) - 1
 
                 if cel == 1:
                     linha_potencial = linha_potencial_vermelho
@@ -102,8 +102,8 @@ def jogo_acabou(matriz: list[list[int]]):
 
                 linha_possui_quatro = possui_quatro_seguidos(linha_potencial, idx_cel, 1)
                 coluna_possui_quatro = possui_quatro_seguidos(coluna_potencial, idx_lin, -1)
-                cres_possui_quatro = possui_quatro_seguidos(crescente_potencial, idx_grid, -9)
-                decrescente_potencial = possui_quatro_seguidos(decrescente_potencial, idx_grid, -11)
+                cres_possui_quatro = possui_quatro_seguidos(crescente_potencial, grid_idx, -9)
+                decrescente_potencial = possui_quatro_seguidos(decrescente_potencial, grid_idx, -11)
 
                 if linha_possui_quatro or coluna_possui_quatro or cres_possui_quatro or decrescente_potencial:
                     resultado = (True, cel)
@@ -123,11 +123,81 @@ def possui_quatro_seguidos(ref_list, index_atual, diferenca):
             ref_list.clear()
     ref_list.append(index_atual)
 
-    return len(ref_list) == 4
+    return len(ref_list) >= 4
 
 
-def decide_coluna(matriz):
-    coluna_selecionada = math.floor(random.random() * 7)
+def decide_coluna(matriz: list[list]):
+    coluna_selecionada = -1
+
+    # min mode
+    idx_lin = len(matriz) - 1
+    while idx_lin >= 0:
+        lin = matriz[idx_lin]
+        for idx_col, cel in enumerate(lin):
+            if cel == 1:
+                um_esquerda = lin[idx_col - 1] if idx_col > 0 else -1
+                dois_esquerda = lin[idx_col - 2] if idx_col > 1 else -1
+                tres_esquerda = lin[idx_col - 3] if idx_col > 2 else -1
+
+                um_direita = lin[idx_col + 1] if idx_col < len(lin) - 1 else -1
+                dois_direita = lin[idx_col + 2] if idx_col < len(lin) - 2 else -1
+                tres_direita = lin[idx_col + 3] if idx_col < len(lin) - 3 else -1
+
+                acima = matriz[idx_lin - 1][idx_col] if idx_lin > 0 else -1
+                um_abaixo = matriz[idx_lin + 1][idx_col] if idx_lin < len(matriz) - 1 else -1
+                dois_abaixo = matriz[idx_lin + 2][idx_col] if idx_lin < len(matriz) - 2 else -1
+
+                baixo_esquerda = matriz[idx_lin + 1][idx_col - 1] if idx_lin < len(matriz) - 1 and idx_col > 0 else -1
+                baixo_direita = matriz[idx_lin + 1][idx_col + 1] if idx_lin < len(matriz) - 1 and idx_col < len(lin) - 1 else -1
+
+                um_diag_esq = matriz[idx_lin - 1][idx_col - 1] if idx_lin > 0 and idx_col > 0 else -1
+                um_diag_esq_um_esq = matriz[idx_lin - 1][idx_col - 2] if idx_lin > 0 and idx_col > 1 else -1
+                dois_diag_esq = matriz[idx_lin - 2][idx_col - 2] if idx_lin > 1 and idx_col > 1 else -1
+                dois_diag_esq_um_esq = matriz[idx_lin - 2][idx_col - 3] if idx_lin > 1 and idx_col > 2 else -1
+                tres_diag_esq = matriz[idx_lin - 3][idx_col - 3] if idx_lin > 2 and idx_col > 2 else -1
+
+                um_diag_dir = matriz[idx_lin - 1][idx_col + 1] if idx_lin > 0 and idx_col < len(lin) - 1 else -1
+                um_diag_dir_um_dir = matriz[idx_lin - 1][idx_col + 2] if idx_lin > 0 and idx_col < len(lin) - 2 else -1
+                dois_diag_dir = matriz[idx_lin - 2][idx_col + 2] if idx_lin > 1 and idx_col < len(lin) - 2 else -1
+                dois_diag_dir_um_dir = matriz[idx_lin - 2][idx_col + 3] if idx_lin > 1 and idx_col < len(lin) - 3 else -1
+                tres_diag_dir = matriz[idx_lin - 3][idx_col + 3] if idx_lin > 2 and idx_col < len(lin) - 3 else -1
+
+                if not [-1, 2].count(acima) and um_abaixo == 1 and dois_abaixo == 1:
+                    coluna_selecionada = idx_col
+
+                if um_direita == 1 and dois_direita == 1:
+                    if not [-1, 2].count(tres_direita):
+                        coluna_selecionada = idx_col + 3
+                    elif not [-1, 2].count(um_esquerda):
+                        coluna_selecionada = idx_col - 1
+                elif dois_direita == 1 and tres_direita == 1:
+                    if not [-1, 2].count(um_direita):
+                        coluna_selecionada = idx_col + 1
+                elif dois_esquerda == 1 and tres_esquerda == 1:
+                    if not [-1, 2].count(um_esquerda):
+                        coluna_selecionada = idx_col - 1
+
+                if um_diag_dir == 1:
+                    if dois_diag_dir == 1 and dois_diag_dir_um_dir != 0:
+                        coluna_selecionada = idx_col + 3
+                    elif tres_diag_dir == 1 and um_diag_dir_um_dir != 0:
+                        coluna_selecionada = idx_col + 2
+                elif dois_diag_dir == 1 and tres_diag_dir == 1:
+                    if um_direita != 0:
+                        coluna_selecionada = idx_col + 1
+
+                if um_diag_esq == 1:
+                    if dois_diag_esq == 1 and not [-1, 0].count(dois_diag_esq_um_esq):
+                        coluna_selecionada = idx_col - 3
+                    elif tres_diag_esq == 1 and not [-1, 0].count(um_diag_esq_um_esq):
+                        coluna_selecionada = idx_col - 2
+                elif dois_diag_esq == 1 and tres_diag_esq == 1:
+                    if um_esquerda != 0:
+                        coluna_selecionada = idx_col - 1
+        idx_lin -= 1
+
+    if coluna_selecionada == -1:
+        coluna_selecionada = math.floor(random.random() * 7)
 
     return coluna_selecionada
 

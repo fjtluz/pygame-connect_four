@@ -138,17 +138,17 @@ def decide_coluna(matriz: list[list]):
                 um_esquerda = lin[idx_col - 1] if idx_col > 0 else -1
                 dois_esquerda = lin[idx_col - 2] if idx_col > 1 else -1
                 tres_esquerda = lin[idx_col - 3] if idx_col > 2 else -1
+                um_esq_um_abaixo = matriz[idx_lin + 1][idx_col - 1] if idx_lin < len(matriz) - 1 and idx_col > 0 else -1
 
                 um_direita = lin[idx_col + 1] if idx_col < len(lin) - 1 else -1
                 dois_direita = lin[idx_col + 2] if idx_col < len(lin) - 2 else -1
                 tres_direita = lin[idx_col + 3] if idx_col < len(lin) - 3 else -1
+                um_dir_um_abaixo = matriz[idx_lin + 1][idx_col + 1] if idx_lin < len(matriz) - 1 and idx_col < len(lin) - 1 else -1
+                tres_dir_um_abaixo = matriz[idx_lin + 1][idx_col + 3] if idx_lin < len(matriz) - 1 and idx_col < len(lin) - 3 else -1
 
                 acima = matriz[idx_lin - 1][idx_col] if idx_lin > 0 else -1
                 um_abaixo = matriz[idx_lin + 1][idx_col] if idx_lin < len(matriz) - 1 else -1
                 dois_abaixo = matriz[idx_lin + 2][idx_col] if idx_lin < len(matriz) - 2 else -1
-
-                baixo_esquerda = matriz[idx_lin + 1][idx_col - 1] if idx_lin < len(matriz) - 1 and idx_col > 0 else -1
-                baixo_direita = matriz[idx_lin + 1][idx_col + 1] if idx_lin < len(matriz) - 1 and idx_col < len(lin) - 1 else -1
 
                 um_diag_esq = matriz[idx_lin - 1][idx_col - 1] if idx_lin > 0 and idx_col > 0 else -1
                 um_diag_esq_um_esq = matriz[idx_lin - 1][idx_col - 2] if idx_lin > 0 and idx_col > 1 else -1
@@ -166,15 +166,15 @@ def decide_coluna(matriz: list[list]):
                     coluna_selecionada = idx_col
 
                 if um_direita == 1 and dois_direita == 1:
-                    if not [-1, 2].count(tres_direita):
+                    if not [-1, 2].count(tres_direita) and tres_dir_um_abaixo != 0:
                         coluna_selecionada = idx_col + 3
-                    elif not [-1, 2].count(um_esquerda):
+                    elif not [-1, 2].count(um_esquerda) and um_esq_um_abaixo != 0:
                         coluna_selecionada = idx_col - 1
                 elif dois_direita == 1 and tres_direita == 1:
-                    if not [-1, 2].count(um_direita):
+                    if not [-1, 2].count(um_direita) and um_dir_um_abaixo != 0:
                         coluna_selecionada = idx_col + 1
                 elif dois_esquerda == 1 and tres_esquerda == 1:
-                    if not [-1, 2].count(um_esquerda):
+                    if not [-1, 2].count(um_esquerda) and um_esq_um_abaixo != 0:
                         coluna_selecionada = idx_col - 1
 
                 if um_diag_dir == 1:
@@ -187,9 +187,9 @@ def decide_coluna(matriz: list[list]):
                         coluna_selecionada = idx_col + 1
 
                 if um_diag_esq == 1:
-                    if dois_diag_esq == 1 and not [-1, 0].count(dois_diag_esq_um_esq):
+                    if dois_diag_esq == 1 and dois_diag_esq_um_esq != 0:
                         coluna_selecionada = idx_col - 3
-                    elif tres_diag_esq == 1 and not [-1, 0].count(um_diag_esq_um_esq):
+                    elif tres_diag_esq == 1 and um_diag_esq_um_esq != 0:
                         coluna_selecionada = idx_col - 2
                 elif dois_diag_esq == 1 and tres_diag_esq == 1:
                     if um_esquerda != 0:

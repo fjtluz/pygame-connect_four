@@ -4,6 +4,16 @@ import math
 import pygame
 
 
+def monta_matriz():
+    return [
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0]
+    ]
+
 def monta_tabuleiro(screen):
 
     top_row_start = pygame.Vector2(50, 70)
@@ -66,27 +76,60 @@ def jogo_acabou(matriz: list[list[int]]):
 
     resultado = (False, -1)
 
+    # possíveis colunas que o vermelho pode ganhar
     colunas_potencial_vermelho = [[], [], [], [], [], [], []]
+    # possíveis colunas que o amarelo pode ganhar
     colunas_potencial_amarelo = [[], [], [], [], [], [], []]
 
+    """ 
+        Explicação da relação lista-diagonal
+        ___________________________
+        | x  x  x    x    x  x  x |  c - crescentes_potencial
+        | x  x  x    x    x  x  x |  d - decrescentes_potencial
+        | x  x  x    x    x  x  x |
+        | 0c x  x    x    x  x 5d |
+        | 1c x  x    x    x  x 4d |
+        | 2c 3c 4c 5c/0d 1d 2d 3d |
+        ---------------------------
+    """
+
+    # possíveis diagonais crescentes (direita pra esquerda) que o vermelho pode ganhar
     crescentes_potencial_vermelho = [[], [], [], [], [], []]
+    # possíveis diagonais crescentes (direita pra esquerda) que o amarelo pode ganhar
     crescentes_potencial_amarelo = [[], [], [], [], [], []]
 
+    # possíveis diagonais decrescentes (esquerda pra direita) que o vermelho pode ganhar
     decrescentes_potencial_vermelho = [[], [], [], [], [], []]
+    # possíveis diagonais decrescentes (esquerda pra direita) que o amarelo pode ganhar
     decrescentes_potencial_amarelo = [[], [], [], [], [], []]
 
+    # utilizando while, pois list.reverse() inverte o index, o que não é desejado
     idx_lin = len(matriz) - 1
     while idx_lin >= 0:
         if not resultado[0]:
             lin = matriz[idx_lin]
+
+            # possível linha que o vermelho pode ganhar
             linha_potencial_vermelho = []
+            # possível linha que o amarelo pode ganhar
             linha_potencial_amarelo = []
+
             for idx_cel, cel in enumerate(lin):
 
+                # calcula o grid_idx; Ex.: (lin=3, col=2) => 32
                 grid_idx = idx_lin * 10 + idx_cel
+
+                # calcula o idx da lista de diagonais crescente possíveis;
+                # utiliza-se o 9, pois é a diferença entre os grid_idx da diagonais crescrentes.
+                # Ex.: (42) => (42 - 30) % 9 === 12 % 9 === 3
                 idx_cres = (grid_idx - 30) % 9
+                # calcula o idx da lista de diagonais descrentes possíveis;
+                # utiliza-se o 11, pois é a diferença entre os grid_idx da diagonais decrescrentes;
+                # utiliza-se o -1, pois essa formula parte do 1 e não do zero.
+                # Ex.: (23) => (23 - 30) % 11 === -7 % 11 === 4 => 4 - 1 === 3
                 idx_decr = ((grid_idx - 30) % 11) - 1
 
+                # define as referências de acordo com a cor analisada no momento
                 if cel == 1:
                     linha_potencial = linha_potencial_vermelho
                     coluna_potencial = colunas_potencial_vermelho[idx_cel]
@@ -113,7 +156,22 @@ def jogo_acabou(matriz: list[list[int]]):
     return resultado
 
 
-def possui_quatro_seguidos(ref_list, index_atual, diferenca):
+def possui_quatro_seguidos(ref_list: list, index_atual: int, diferenca: int):
+    f"""
+        Recebe uma lista referência que contém as peças já analisadas
+        que podem consistir uma sequencia de quatro ou mais, o index atual
+        a ser analisado e a diferença esperada entre o último item da lista
+        e o index atual.
+
+        Se a diferença do index atual com o último item da lista não for
+        a diferença esperada, a lista referência é limpada e recomeçada com o 
+        index atual
+        
+        Se a diferença for igual, o index atual é acrescentado ao final da lista.
+        
+        Retorna se o tamanho da lista é maior ou igual a 4. Se for, indica que 
+        o jogo deve acabar, senão o jogo continua.
+    """
     if ref_list is None:
         return False
 
@@ -124,6 +182,70 @@ def possui_quatro_seguidos(ref_list, index_atual, diferenca):
     ref_list.append(index_atual)
 
     return len(ref_list) >= 4
+
+
+def simula_jogada(matriz: list[list[int]]):
+    matriz_de_valores = monta_matriz()
+    colunas_validas_visitadas = []
+
+    idx_lin = len(matriz) - 1
+    while idx_lin >= 0:
+        lin = matriz[idx_lin]
+
+        lista_pecas = []
+
+        ultimo_verificado = 0
+        for i in range(lin.count(1)):
+            ultimo_verificado = lin.index(1, ultimo_verificado)
+            matriz_de_valores[idx_lin][ultimo_verificado] = -1
+            lista_pecas.append(ultimo_verificado)
+            ultimo_verificado += 1
+
+        ultimo_verificado = 0
+        for i in range(lin.count(2)):
+            ultimo_verificado = lin.index(2, ultimo_verificado)
+            matriz_de_valores[idx_lin][ultimo_verificado] = -1
+            ultimo_verificado += 1
+
+        for idx_col in lista_pecas:
+
+            # espaços a esquerda
+            espacos_a_esquerda = range(idx_col)
+
+            valor = 3
+            idx_espaco = espacos_a_esquerda.stop - 1
+            while idx_espaco >= espacos_a_esquerda.start:
+                if [0, 1].count(matriz[idx_lin][idx_espaco]):
+                    if matriz[idx_lin][idx_espaco] == 0:
+                        colunas_validas_visitadas.append(idx_espaco)
+                        matriz_de_valores[idx_lin][idx_espaco] += valor
+                    valor -= 1
+                else:
+                    valor -= 2
+                if valor < 0:
+                    valor = 0
+                idx_espaco -= espacos_a_esquerda.step
+
+            # espaços a direita
+            espacos_a_direita = range(idx_col + 1, len(lin))
+            valor = 3
+            for idx_espaco in espacos_a_direita:
+                if [0, 1].count(matriz[idx_lin][idx_espaco]):
+                    if matriz[idx_lin][idx_espaco] == 0:
+                        colunas_validas_visitadas.append(idx_espaco)
+                        matriz_de_valores[idx_lin][idx_espaco] += valor
+                    valor -= 1
+                else:
+                    valor -= 2
+                if valor < 0:
+                    valor = 0
+
+            if idx_lin > 0:
+                if matriz[idx_lin - 1][idx_col] == 0:
+                    matriz_de_valores[idx_lin - 1][idx_col] += 3
+        idx_lin -= 1
+
+    print(matriz_de_valores)
 
 
 def decide_coluna(matriz: list[list]):
@@ -204,14 +326,8 @@ def decide_coluna(matriz: list[list]):
 
 def start_game():
 
-    matriz = [
-        [0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0],
-    ]
+    # monta a matriz
+    matriz = monta_matriz()
 
     pygame.init()
     screen = pygame.display.set_mode((1300, 800))
@@ -226,12 +342,17 @@ def start_game():
     row_size = ((screen.get_height() - 100) / 7) - 2.5
     row_start = 80
 
+    # monta intervalo de posição das colunas
     intervalo_colunas = monta_intervalos(col_start, col_size)
 
+    # monta intervalo de posição das linhas
     intervalo_linhas = monta_intervalos(row_start, row_size)
 
+    # inicializar font utilizada no jogo
     pygame.font.init()
     font = pygame.font.SysFont("Comic Sans MS", 30)
+
+    # informa texto de quem é o jogador atual
     texto_base = font.render("JOGADOR ATUAL:", False, "white")
     jogador_atual_texto = font.render("VERMELHO", False, "red")
 
@@ -241,6 +362,7 @@ def start_game():
     # boolean para caso o click do mouse já foi tratado
     validate_press = False
 
+    # define o ganhador
     ganhador = -1
 
     while running:
@@ -250,6 +372,7 @@ def start_game():
             if event.type == pygame.QUIT:
                 running = False
 
+        # verifica o resultado do jogo
         resultado = jogo_acabou(matriz)
         if resultado[0]:
             ganhador = resultado[1]

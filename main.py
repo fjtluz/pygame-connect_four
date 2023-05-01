@@ -1,21 +1,17 @@
 import random
 import math
 
+import copy
+
 import pygame
 
 
-def monta_matriz():
-    return [
-        [0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0],
-        [0, 0, 0, 0, 0, 0, 0]
-    ]
+def imprime_matriz(matriz):
+    for lin in matriz:
+        print(lin)
+
 
 def monta_tabuleiro(screen):
-
     top_row_start = pygame.Vector2(50, 70)
     top_row_end = pygame.Vector2(screen.get_width() - 50, 70)
 
@@ -34,7 +30,6 @@ def monta_tabuleiro(screen):
 
 
 def adiciona_peca(matriz, coluna, color):
-
     pos_adicionada = (-1, -1)
 
     linha = len(matriz) - 1
@@ -50,13 +45,12 @@ def adiciona_peca(matriz, coluna, color):
 
 
 def imprime_pecas(screen, matriz, intervalo_col, intervalo_lin):
-
     for (idx_row, row) in enumerate(matriz):
         for (idx_col, col) in enumerate(row):
             if col != 0:
                 color = "red" if col == 1 else "yellow"
-                pos_x = (intervalo_col[idx_col][0] + intervalo_col[idx_col][1])/2
-                pos_y = (intervalo_lin[idx_row][0] + intervalo_lin[idx_row][1])/2
+                pos_x = (intervalo_col[idx_col][0] + intervalo_col[idx_col][1]) / 2
+                pos_y = (intervalo_lin[idx_row][0] + intervalo_lin[idx_row][1]) / 2
                 pos_circulo = pygame.Vector2(pos_x, pos_y)
                 pygame.draw.circle(screen, color, pos_circulo, 40)
 
@@ -67,13 +61,12 @@ def monta_intervalos(start, size):
         if i == 0:
             intervalo.append((start, start + size))
         else:
-            new_start = intervalo[i-1][1] + 20
+            new_start = intervalo[i - 1][1] + 20
             intervalo.append((new_start, new_start + size))
     return intervalo
 
 
 def jogo_acabou(matriz: list[list[int]]):
-
     resultado = (False, -1)
 
     # possíveis colunas que o vermelho pode ganhar
@@ -93,6 +86,8 @@ def jogo_acabou(matriz: list[list[int]]):
         ---------------------------
     """
 
+    linhas_totalmente_preenchidas = 0
+
     # possíveis diagonais crescentes (direita pra esquerda) que o vermelho pode ganhar
     crescentes_potencial_vermelho = [[], [], [], [], [], []]
     # possíveis diagonais crescentes (direita pra esquerda) que o amarelo pode ganhar
@@ -108,6 +103,8 @@ def jogo_acabou(matriz: list[list[int]]):
     while idx_lin >= 0:
         if not resultado[0]:
             lin = matriz[idx_lin]
+            if lin.count(0) == 0:
+                linhas_totalmente_preenchidas += 1
 
             # possível linha que o vermelho pode ganhar
             linha_potencial_vermelho = []
@@ -153,11 +150,14 @@ def jogo_acabou(matriz: list[list[int]]):
                     break
         idx_lin -= 1
 
+    if not resultado[0] and linhas_totalmente_preenchidas == len(matriz):
+        resultado = (True, 3)
+
     return resultado
 
 
 def possui_quatro_seguidos(ref_list: list, index_atual: int, diferenca: int):
-    f"""
+    """
         Recebe uma lista referência que contém as peças já analisadas
         que podem consistir uma sequencia de quatro ou mais, o index atual
         a ser analisado e a diferença esperada entre o último item da lista
@@ -184,68 +184,290 @@ def possui_quatro_seguidos(ref_list: list, index_atual: int, diferenca: int):
     return len(ref_list) >= 4
 
 
-def simula_jogada(matriz: list[list[int]]):
-    matriz_de_valores = monta_matriz()
-    colunas_validas_visitadas = []
+def pecas_na_linha(linha: list[int], peca: int) -> list[int]:
+    """
+        Itera pela quantidade de peças de uma determinada cor presentes na linha informada
+        e retorna uma lista coma posição dessas peças. E atualiza a matriz de valores
 
-    idx_lin = len(matriz) - 1
+        :param matriz_valores: matriz de valores
+        :param linha: referencia da linha a ser analisada
+        :param peca: peca a ser procurada na linha
+        :return: lista de posicoes da peça informada
+    """
+
+    pecas = []
+    inicio_busca = 0
+    for i in range(linha.count(peca)):
+        inicio_busca = linha.index(peca, inicio_busca)
+        pecas.append(inicio_busca)
+        inicio_busca += 1
+
+    return pecas
+
+
+def coluna_ja_visitada(colunas_visitadas, idx_lin, idx_col) -> bool:
+    """
+        Verifica se a coluna já foi verifica por em outra linha anteriormente
+
+        :param colunas_visitadas:
+        :param idx_lin:
+        :param idx_col:
+        :return:
+    """
+
+    visitado = False
+
+    for coluna in colunas_visitadas:
+        if (coluna - idx_col) % 10 == 0 and (coluna != (idx_lin * 10) + idx_col):
+            visitado = True
+
+    return visitado
+
+
+def define_valor_diagonal(matriz_pecas, matriz_valores, idx_lin, pos_peca, pos_anl):
+
+    linha = matriz_pecas[idx_lin]
+    valor_peca = matriz_pecas[idx_lin][pos_peca]
+
+    # se é a peça logo ao lado e não está na primeira linha
+    if abs(pos_anl - pos_peca) == 1 and idx_lin > 0:
+
+        # se a posição acima desta estiver
+        if matriz_pecas[idx_lin - 1][pos_anl] == 0:
+
+            # possui ao menos uma diagonal => valor 1
+            valor_diagonal = 1
+
+            # lista de posições que irão receber um valor
+            posicoes_a_serem_valoradas = []
+
+            if matriz_pecas[idx_lin][pos_anl] != 0:
+                posicoes_a_serem_valoradas.append((idx_lin - 1, pos_anl))
+
+            # 1 = direita; -1 = esquerda
+            direcao = pos_peca - pos_anl
+
+            # verifica se uma posição a direita da peça não gera overflow
+            if direcao == 1:
+                # posição a um espaço à direita da peça não estoura o grid pela direita
+                permite_um_ao_lado = pos_peca + direcao <= len(linha) - 1
+                # posição a dois espaços à direita da peça não estoura o grid pela direita
+                permite_dois_ao_lado = pos_peca + (2 * direcao) <= len(linha) - 1
+                # posição três espaços a direita da posição analisa não estoura o grid pela esquerda
+                permite_tres_ao_lado = pos_peca + (3 * direcao) <= len(linha) - 1
+
+                # para os seguintes se trata da direção inversa
+                # posição a um espaço a esquerda da posição analisa não estoura o grid pela esquerda
+                permite_um_outro_lado = pos_anl + (-1 * direcao) >= 0
+                # posição dois espaços a esquerda da peça não estoura o grid pela esquerda
+                permite_dois_outro_lado = pos_anl + (-2 * direcao) >= 0
+
+            # verifica se uma posição a esquerda da peça não gera underflow
+            else:
+                # posição a um espaço à esquerda da peça não estoura o grid pela esquerda
+                permite_um_ao_lado = pos_peca + direcao >= 0
+                # posição a dois espaços à esquerda da peça não estoura o grid pela esquerda
+                permite_dois_ao_lado = pos_peca + (2 * direcao) >= 0
+                # posição três espaços a esquerda da peça não estoura o grid pela esquerda
+                permite_tres_ao_lado = pos_peca + (3 * direcao) >= 0
+
+                # para os seguintes se trata da direção inversa
+                # posição a um espaço a direita da posição analisa não estoura o grid pela direita
+                permite_um_outro_lado = pos_anl + (-1 * direcao) <= len(linha) - 1
+                # posição dois espaços a direita da posição analisa não estoura o grid pela direita
+                permite_dois_outro_lado = pos_anl + (-2 * direcao) <= len(linha) - 1
+
+            # se não se encontra na última linha e permite uma posição ao lado
+            if idx_lin < len(matriz_pecas) - 1 and permite_um_ao_lado:
+                # se o espaço na linha abaixo e uma posição ao lado da peça possui o mesmo valor que a peça
+                if matriz_pecas[idx_lin + 1][pos_peca + direcao] == valor_peca:
+                    valor_diagonal = 2
+                    # se não se encontra na penúltima linha e permite duas posições ao lado
+                    if idx_lin < len(matriz_pecas) - 2 and permite_dois_ao_lado:
+                        # se o espaço duas linhas abaixo e dois posições ao lado da peça possui o mesmo valor que a peça
+                        if matriz_pecas[idx_lin + 2][pos_peca + (2 * direcao)] == valor_peca:
+                            # se não se encontra na antepenúltima linha e permite três posições ao lado
+                            if idx_lin < len(matriz_pecas) - 3 and permite_tres_ao_lado:
+                                # se o espaço três linhas abaixo e três posições ao lado da peça está vazio
+                                if matriz_pecas[idx_lin + 3][pos_peca + (3 * direcao)] == 0:
+                                    posicoes_a_serem_valoradas.append((idx_lin + 3, pos_peca + (3 * direcao)))
+                            valor_diagonal = 15
+                    # se não se encontra na segunda linha e permite uma posição ao outro lado da peça
+                    if idx_lin > 1 and permite_um_outro_lado:
+                        # se o espaço na linha acima e uma posição ao outro lado da posição analisada possui o mesmo valor que a peça
+                        if matriz_pecas[idx_lin - 2][pos_anl + (-1 * direcao)] == valor_peca:
+                            valor_diagonal = 15
+            # se não se encontra na terceira linha e permite duas posições ao outro lado da peça
+            if idx_lin > 2 and permite_dois_outro_lado:
+                # se o espaço na linha acima e uma posição ao outro lado da posição analisada possui o mesmo valor que a peça
+                if matriz_pecas[idx_lin - 2][pos_anl + (-1 * direcao)] == valor_peca:
+                    # se o espaço duas linhas acima e duas posições ao outro lado da posição analisada possui o mesmo valor que a peça
+                    if matriz_pecas[idx_lin - 3][pos_anl + (-2 * direcao)] == valor_peca:
+                        valor_diagonal = 15
+
+            for lin, col in posicoes_a_serem_valoradas:
+                matriz_valores[lin][col] += valor_diagonal
+
+
+def define_valor_linha(
+        matriz_pecas: list[list[int]],
+        matriz_valores: list[list[int]],
+        colunas_visitadas: list[int],
+        indexes: tuple[int, int, int],
+        valor: int
+):
+    """
+        Analisa as posições próximas da peca e determina uma valor para elas. O valor
+        decresce conforme a distancia da posição pela peça aumenta. Caso haja uma peça
+        de outra cor próxima, o valor decrementa mais, pois isto diminui as chances
+        de forma quatro seguidos.
+
+        :param matriz_pecas: matriz da posições das peças
+        :param matriz_valores: matriz de valores
+        :param colunas_visitadas: lista de colunas já visitadas
+        :param indexes: tupla de indexes (index da linha, index da posicao analisada, index da peca)
+        :param valor: valor atribuido a essa posicao
+    """
+
+    idx_lin = indexes[0]
+    idx_pos = indexes[1]
+    idx_peca = indexes[2]
+
+    linha = matriz_pecas[idx_lin]
+
+    cel = linha[idx_pos]
+    if cel == 0 and not coluna_ja_visitada(colunas_visitadas, idx_lin, idx_pos):
+        colunas_visitadas.append((idx_lin * 10) + idx_pos)
+        matriz_valores[idx_lin][idx_pos] += valor
+        valor -= 1
+    elif cel != 0:
+        matriz_valores[idx_lin][idx_pos] = -1
+        if cel != linha[idx_peca]:
+            valor *= 0
+
+    if valor < 0:
+        valor *= 0
+
+    return valor
+
+
+def calcula_jogada_de_maior_valor(matriz_valores_vermelho, matriz_valores_amarelo, colunas_bloqueadas) -> tuple[int, int, bool]:
+    """
+        Retorna uma tupla contendo, o valor da maior jogada, a coluna que deve jogada e se a jogada favorece o vermelho
+    """
+
+    maior_valor = (0, 0, False)
+    for idx_lin in range(len(matriz_valores_vermelho)):
+        linha_vermelho = matriz_valores_vermelho[idx_lin]
+        linha_amarelo = matriz_valores_amarelo[idx_lin]
+        for idx_col in range(len(linha_amarelo)):
+            valor_vermelho = linha_vermelho[idx_col]
+            valor_amarelo = linha_amarelo[idx_col]
+            maximo_linha = valor_vermelho + valor_amarelo
+            if maximo_linha > maior_valor[0] and colunas_bloqueadas.count(idx_col) == 0:
+                maior_valor = (maximo_linha, idx_col, valor_vermelho > valor_amarelo)
+
+    return maior_valor
+
+
+def simula_jogada(matriz_pecas: list[list[int]], jogada_a_frente=0):
+    """
+        Define um valor para cada jogada possível e escolhe a jogada de maior valor
+    """
+    matriz_valores_vermelho = [[0 for i in range(7)] for j in range(6)]
+    matriz_valores_amarelo = [[0 for i in range(7)] for j in range(6)]
+    colunas_visitadas = []
+
+    idx_lin = len(matriz_pecas) - 1
     while idx_lin >= 0:
-        lin = matriz[idx_lin]
+        lin = matriz_pecas[idx_lin]
 
-        lista_pecas = []
+        idx_pecas = []
+        idx_pecas.extend(pecas_na_linha(lin, 1))
+        idx_pecas.extend(pecas_na_linha(lin, 2))
 
-        ultimo_verificado = 0
-        for i in range(lin.count(1)):
-            ultimo_verificado = lin.index(1, ultimo_verificado)
-            matriz_de_valores[idx_lin][ultimo_verificado] = -1
-            lista_pecas.append(ultimo_verificado)
-            ultimo_verificado += 1
+        for idx_peca in idx_pecas:
+            matriz_valores_vermelho[idx_lin][idx_peca] = -1
+            matriz_valores_amarelo[idx_lin][idx_peca] = -1
 
-        ultimo_verificado = 0
-        for i in range(lin.count(2)):
-            ultimo_verificado = lin.index(2, ultimo_verificado)
-            matriz_de_valores[idx_lin][ultimo_verificado] = -1
-            ultimo_verificado += 1
+            cor = matriz_pecas[idx_lin][idx_peca]
+            matriz_valores = matriz_valores_vermelho if cor == 1 else matriz_valores_amarelo
 
-        for idx_col in lista_pecas:
+            valor = 4
+            # pecas a esquerda
+            posicoes_a_esquerda = range(0, idx_peca)
+            idx_esq = posicoes_a_esquerda.stop - 1
+            while idx_esq >= posicoes_a_esquerda.start:
+                if [0, matriz_pecas[idx_lin][idx_peca]].count(matriz_pecas[idx_lin][3]):
+                    valor = define_valor_linha(matriz_pecas, matriz_valores, colunas_visitadas, (idx_lin, idx_esq, idx_peca), valor)
+                if abs(idx_peca - idx_esq) == 1:
+                    define_valor_diagonal(matriz_pecas, matriz_valores, idx_lin, idx_peca, idx_esq)
 
-            # espaços a esquerda
-            espacos_a_esquerda = range(idx_col)
+                idx_esq -= posicoes_a_esquerda.step
 
-            valor = 3
-            idx_espaco = espacos_a_esquerda.stop - 1
-            while idx_espaco >= espacos_a_esquerda.start:
-                if [0, 1].count(matriz[idx_lin][idx_espaco]):
-                    if matriz[idx_lin][idx_espaco] == 0:
-                        colunas_validas_visitadas.append(idx_espaco)
-                        matriz_de_valores[idx_lin][idx_espaco] += valor
-                    valor -= 1
-                else:
-                    valor -= 2
-                if valor < 0:
-                    valor = 0
-                idx_espaco -= espacos_a_esquerda.step
-
-            # espaços a direita
-            espacos_a_direita = range(idx_col + 1, len(lin))
-            valor = 3
-            for idx_espaco in espacos_a_direita:
-                if [0, 1].count(matriz[idx_lin][idx_espaco]):
-                    if matriz[idx_lin][idx_espaco] == 0:
-                        colunas_validas_visitadas.append(idx_espaco)
-                        matriz_de_valores[idx_lin][idx_espaco] += valor
-                    valor -= 1
-                else:
-                    valor -= 2
-                if valor < 0:
-                    valor = 0
+            valor = 4
+            # pecas a direita
+            for idx_dir in range(idx_peca + 1, len(lin)):
+                if [0, matriz_pecas[idx_lin][idx_peca]].count(matriz_pecas[idx_lin][3]):
+                    valor = define_valor_linha(matriz_pecas, matriz_valores, colunas_visitadas, (idx_lin, idx_dir, idx_peca), valor)
+                if abs(idx_peca - idx_dir) == 1:
+                    define_valor_diagonal(matriz_pecas, matriz_valores, idx_lin, idx_peca, idx_dir)
 
             if idx_lin > 0:
-                if matriz[idx_lin - 1][idx_col] == 0:
-                    matriz_de_valores[idx_lin - 1][idx_col] += 3
+
+                valor = 2
+                if idx_lin < len(matriz_pecas) - 1 and matriz_pecas[idx_lin + 1][idx_peca] == matriz_pecas[idx_lin][idx_peca]:
+                    if idx_lin < len(matriz_pecas) - 2 and matriz_pecas[idx_lin + 2][idx_peca] == matriz_pecas[idx_lin + 1][idx_peca]:
+                        valor = 15
+                    else:
+                        valor = 3
+
+                if matriz_pecas[idx_lin - 1][idx_peca] == 0:
+                    # zera se a linha acima for o topo do grid e não for fechar 4
+                    valor = 0 if valor != 15 and idx_lin == 1 else valor
+                    matriz_valores[idx_lin - 1][idx_peca] += valor
+
         idx_lin -= 1
 
-    print(matriz_de_valores)
+    maior_valor = calcula_jogada_de_maior_valor(matriz_valores_vermelho, matriz_valores_amarelo, [])
+
+    if jogada_a_frente == 0:
+        clone_matriz = copy.deepcopy(matriz_pecas)
+        pos_jogada = adiciona_peca(clone_matriz, maior_valor[1], 2)
+
+        if pos_jogada != (-1, -1):
+            colunas_proibidas = []
+            proximo_maior_valor = simula_jogada(clone_matriz, jogada_a_frente + 1)
+            ganhou = jogo_acabou(clone_matriz)
+            while proximo_maior_valor[0] > maior_valor[0] and proximo_maior_valor[2] and not ganhou[0]:
+                clone_matriz = copy.deepcopy(matriz_pecas)
+                colunas_proibidas.append(maior_valor[1])
+                jogada_antiga = maior_valor
+                maior_valor = calcula_jogada_de_maior_valor(matriz_valores_vermelho, matriz_valores_amarelo, colunas_proibidas)
+                pos_jogada = adiciona_peca(clone_matriz, maior_valor[1], 2)
+                if pos_jogada != (-1, -1):
+                    print(f'Jogada recalculada => Antes: {jogada_antiga}; Próxima jogada: {proximo_maior_valor}; Atual: {maior_valor}')
+                    proximo_maior_valor = simula_jogada(clone_matriz, jogada_a_frente + 1)
+                    ganhou = jogo_acabou(clone_matriz)
+                else:
+                    colunas_proibidas.append(maior_valor[1])
+
+        else:
+            maior_valor = calcula_jogada_de_maior_valor(matriz_valores_vermelho, matriz_valores_amarelo, [maior_valor[1]])
+
+    if jogada_a_frente == 0:
+        print(f"Jogada escolhida: {maior_valor[1]}")
+        matriz_valores = []
+        for i in range(6):
+            linha = []
+            for j in range(7):
+                soma = matriz_valores_vermelho[i][j] + matriz_valores_amarelo[i][j]
+                soma = soma if soma > -1 else -1
+                linha.append(soma)
+            matriz_valores.append(linha)
+        imprime_matriz(matriz_valores)
+
+    return maior_valor
 
 
 def decide_coluna(matriz: list[list]):
@@ -265,8 +487,10 @@ def decide_coluna(matriz: list[list]):
                 um_direita = lin[idx_col + 1] if idx_col < len(lin) - 1 else -1
                 dois_direita = lin[idx_col + 2] if idx_col < len(lin) - 2 else -1
                 tres_direita = lin[idx_col + 3] if idx_col < len(lin) - 3 else -1
-                um_dir_um_abaixo = matriz[idx_lin + 1][idx_col + 1] if idx_lin < len(matriz) - 1 and idx_col < len(lin) - 1 else -1
-                tres_dir_um_abaixo = matriz[idx_lin + 1][idx_col + 3] if idx_lin < len(matriz) - 1 and idx_col < len(lin) - 3 else -1
+                um_dir_um_abaixo = matriz[idx_lin + 1][idx_col + 1] if idx_lin < len(matriz) - 1 and idx_col < len(
+                    lin) - 1 else -1
+                tres_dir_um_abaixo = matriz[idx_lin + 1][idx_col + 3] if idx_lin < len(matriz) - 1 and idx_col < len(
+                    lin) - 3 else -1
 
                 acima = matriz[idx_lin - 1][idx_col] if idx_lin > 0 else -1
                 um_abaixo = matriz[idx_lin + 1][idx_col] if idx_lin < len(matriz) - 1 else -1
@@ -281,7 +505,8 @@ def decide_coluna(matriz: list[list]):
                 um_diag_dir = matriz[idx_lin - 1][idx_col + 1] if idx_lin > 0 and idx_col < len(lin) - 1 else -1
                 um_diag_dir_um_dir = matriz[idx_lin - 1][idx_col + 2] if idx_lin > 0 and idx_col < len(lin) - 2 else -1
                 dois_diag_dir = matriz[idx_lin - 2][idx_col + 2] if idx_lin > 1 and idx_col < len(lin) - 2 else -1
-                dois_diag_dir_um_dir = matriz[idx_lin - 2][idx_col + 3] if idx_lin > 1 and idx_col < len(lin) - 3 else -1
+                dois_diag_dir_um_dir = matriz[idx_lin - 2][idx_col + 3] if idx_lin > 1 and idx_col < len(
+                    lin) - 3 else -1
                 tres_diag_dir = matriz[idx_lin - 3][idx_col + 3] if idx_lin > 2 and idx_col < len(lin) - 3 else -1
 
                 if not [-1, 2].count(acima) and um_abaixo == 1 and dois_abaixo == 1:
@@ -325,9 +550,8 @@ def decide_coluna(matriz: list[list]):
 
 
 def start_game():
-
     # monta a matriz
-    matriz = monta_matriz()
+    matriz_pecas = [[0 for i in range(7)] for j in range(6)]
 
     pygame.init()
     screen = pygame.display.set_mode((1300, 800))
@@ -372,49 +596,57 @@ def start_game():
             if event.type == pygame.QUIT:
                 running = False
 
-        # verifica o resultado do jogo
-        resultado = jogo_acabou(matriz)
-        if resultado[0]:
-            ganhador = resultado[1]
-            break
-
         # fill the screen with a color to wipe away anything from last frame
         screen.fill("white")
-
         pygame.draw.line(screen, "black", (0, 15), (screen.get_width(), 15), 30)
-        screen.blit(texto_base, pygame.Vector2(10, 10))
-        screen.blit(jogador_atual_texto, pygame.Vector2(texto_base.get_width() + 15, 10))
-
         monta_tabuleiro(screen)
-        imprime_pecas(screen, matriz, intervalo_colunas, intervalo_linhas)
+        imprime_pecas(screen, matriz_pecas, intervalo_colunas, intervalo_linhas)
 
-        # Jogador
-        if jogador_atual == 1:
-            state_mouse = pygame.mouse.get_pressed(num_buttons=3)
+        # verifica o resultado do jogo
+        resultado = jogo_acabou(matriz_pecas)
+        if resultado[0]:
+            ganhador = resultado[1]
 
-            if state_mouse[0] and not validate_press:
-                validate_press = True
-                current_pos = pygame.mouse.get_pos()
-                if current_pos[1] < 50:
-                    coluna_selecionada = -1
-                    for (idx, intevalo) in enumerate(intervalo_colunas):
-                        if intevalo[0] <= current_pos[0] <= intevalo[1]:
-                            coluna_selecionada = idx
-                            break
-                    if coluna_selecionada != -1:
-                        pos_adicionada = adiciona_peca(matriz, coluna_selecionada, jogador_atual)
-                        if pos_adicionada != (-1, -1):
-                            jogador_atual = 2
-                            jogador_atual_texto = font.render("AMARELO", False, "yellow")
-            elif not state_mouse[0]:
-                validate_press = False
-        # IA
-        elif jogador_atual == 2:
-            coluna_selecionada = decide_coluna(matriz)
-            pos_adicionada = adiciona_peca(matriz, coluna_selecionada, jogador_atual)
-            if pos_adicionada != (-1, -1):
-                jogador_atual = 1
-                jogador_atual_texto = font.render("VERMELHO", False, "red")
+            if ganhador == 3:
+                texto_base = font.render("FIM DE JOGO: EMPATE", False, "blue")
+            else:
+                texto_base = font.render("VENCEDOR:", False, "green")
+                if ganhador == 1:
+                    jogador_atual_texto = font.render("VERMELHO", False, "red")
+                else:
+                    jogador_atual_texto = font.render("AMARELO", False, "yellow")
+                screen.blit(jogador_atual_texto, pygame.Vector2(texto_base.get_width() + 15, 10))
+            screen.blit(texto_base, pygame.Vector2(10, 10))
+        else:
+            screen.blit(texto_base, pygame.Vector2(10, 10))
+            screen.blit(jogador_atual_texto, pygame.Vector2(texto_base.get_width() + 15, 10))
+            # Jogador
+            if jogador_atual == 1:
+                state_mouse = pygame.mouse.get_pressed(num_buttons=3)
+
+                if state_mouse[0] and not validate_press:
+                    validate_press = True
+                    current_pos = pygame.mouse.get_pos()
+                    if current_pos[1] < 50:
+                        coluna_selecionada = -1
+                        for (idx, intevalo) in enumerate(intervalo_colunas):
+                            if intevalo[0] <= current_pos[0] <= intevalo[1]:
+                                coluna_selecionada = idx
+                                break
+                        if coluna_selecionada != -1:
+                            pos_adicionada = adiciona_peca(matriz_pecas, coluna_selecionada, jogador_atual)
+                            if pos_adicionada != (-1, -1):
+                                jogador_atual = 2
+                                jogador_atual_texto = font.render("AMARELO", False, "yellow")
+                elif not state_mouse[0]:
+                    validate_press = False
+            # IA
+            elif jogador_atual == 2:
+                coluna_selecionada = simula_jogada(matriz_pecas)[1]  # decide_coluna(matriz)
+                pos_adicionada = adiciona_peca(matriz_pecas, coluna_selecionada, jogador_atual)
+                if pos_adicionada != (-1, -1):
+                    jogador_atual = 1
+                    jogador_atual_texto = font.render("VERMELHO", False, "red")
 
         # flip() the display to put your work on screen
         pygame.display.flip()

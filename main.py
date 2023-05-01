@@ -296,7 +296,7 @@ def define_valor_diagonal(matriz_pecas, matriz_valores, idx_lin, pos_peca, pos_a
                     if idx_lin > 1 and permite_um_outro_lado:
                         # se o espaço na linha acima e uma posição ao outro lado da posição analisada possui o mesmo valor que a peça
                         if matriz_pecas[idx_lin - 2][pos_anl + (-1 * direcao)] == valor_peca:
-                            valor_diagonal = 15
+                            valor_diagonal = 20
             # se não se encontra na terceira linha e permite duas posições ao outro lado da peça
             if idx_lin > 2 and permite_dois_outro_lado:
                 # se o espaço na linha acima e uma posição ao outro lado da posição analisada possui o mesmo valor que a peça
@@ -311,10 +311,10 @@ def define_valor_diagonal(matriz_pecas, matriz_valores, idx_lin, pos_peca, pos_a
 
 def define_valor_linha(
         matriz_pecas: list[list[int]],
-        matriz_valores: list[list[int]],
+        matriz_valores: list[list[float]],
         colunas_visitadas: list[int],
         indexes: tuple[int, int, int],
-        valor: int
+        valor: float
 ):
     """
         Analisa as posições próximas da peca e determina uma valor para elas. O valor
@@ -344,6 +344,8 @@ def define_valor_linha(
         matriz_valores[idx_lin][idx_pos] = -1
         if cel != linha[idx_peca]:
             valor *= 0
+    else:
+        valor -= 1
 
     if valor < 0:
         valor *= 0
@@ -357,6 +359,8 @@ def calcula_jogada_de_maior_valor(matriz_valores_vermelho, matriz_valores_amarel
     """
 
     maior_valor = (0, 0, False)
+    jogadas_com_maior_valor = []
+
     for idx_lin in range(len(matriz_valores_vermelho)):
         linha_vermelho = matriz_valores_vermelho[idx_lin]
         linha_amarelo = matriz_valores_amarelo[idx_lin]
@@ -364,8 +368,17 @@ def calcula_jogada_de_maior_valor(matriz_valores_vermelho, matriz_valores_amarel
             valor_vermelho = linha_vermelho[idx_col]
             valor_amarelo = linha_amarelo[idx_col]
             maximo_linha = valor_vermelho + valor_amarelo
-            if maximo_linha > maior_valor[0] and colunas_bloqueadas.count(idx_col) == 0:
-                maior_valor = (maximo_linha, idx_col, valor_vermelho > valor_amarelo)
+            if colunas_bloqueadas.count(idx_col) == 0:
+                if maximo_linha > maior_valor[0]:
+                    maior_valor = (maximo_linha, idx_col, valor_vermelho > valor_amarelo)
+                    jogadas_com_maior_valor = [maior_valor]
+                elif maximo_linha == maior_valor[0]:
+                    jogadas_com_maior_valor.append((maximo_linha, idx_col, valor_vermelho > valor_amarelo))
+
+    for possivel_jogada in jogadas_com_maior_valor:
+        maior_valor = possivel_jogada
+        if possivel_jogada[2]:
+            break
 
     return maior_valor
 
@@ -374,8 +387,8 @@ def simula_jogada(matriz_pecas: list[list[int]], jogada_a_frente=0):
     """
         Define um valor para cada jogada possível e escolhe a jogada de maior valor
     """
-    matriz_valores_vermelho = [[0 for i in range(7)] for j in range(6)]
-    matriz_valores_amarelo = [[0 for i in range(7)] for j in range(6)]
+    matriz_valores_vermelho = [[0.0 for i in range(7)] for j in range(6)]
+    matriz_valores_amarelo = [[0.0 for i in range(7)] for j in range(6)]
     colunas_visitadas = []
 
     idx_lin = len(matriz_pecas) - 1
@@ -393,7 +406,7 @@ def simula_jogada(matriz_pecas: list[list[int]], jogada_a_frente=0):
             cor = matriz_pecas[idx_lin][idx_peca]
             matriz_valores = matriz_valores_vermelho if cor == 1 else matriz_valores_amarelo
 
-            valor = 4
+            valor = 3.5
             # pecas a esquerda
             posicoes_a_esquerda = range(0, idx_peca)
             idx_esq = posicoes_a_esquerda.stop - 1
@@ -405,7 +418,7 @@ def simula_jogada(matriz_pecas: list[list[int]], jogada_a_frente=0):
 
                 idx_esq -= posicoes_a_esquerda.step
 
-            valor = 4
+            valor = 3.5
             # pecas a direita
             for idx_dir in range(idx_peca + 1, len(lin)):
                 if [0, matriz_pecas[idx_lin][idx_peca]].count(matriz_pecas[idx_lin][3]):
@@ -414,11 +427,10 @@ def simula_jogada(matriz_pecas: list[list[int]], jogada_a_frente=0):
                     define_valor_diagonal(matriz_pecas, matriz_valores, idx_lin, idx_peca, idx_dir)
 
             if idx_lin > 0:
-
                 valor = 2
                 if idx_lin < len(matriz_pecas) - 1 and matriz_pecas[idx_lin + 1][idx_peca] == matriz_pecas[idx_lin][idx_peca]:
                     if idx_lin < len(matriz_pecas) - 2 and matriz_pecas[idx_lin + 2][idx_peca] == matriz_pecas[idx_lin + 1][idx_peca]:
-                        valor = 15
+                        valor = 20
                     else:
                         valor = 3
 
@@ -439,11 +451,14 @@ def simula_jogada(matriz_pecas: list[list[int]], jogada_a_frente=0):
             colunas_proibidas = []
             proximo_maior_valor = simula_jogada(clone_matriz, jogada_a_frente + 1)
             ganhou = jogo_acabou(clone_matriz)
-            while proximo_maior_valor[0] > maior_valor[0] and proximo_maior_valor[2] and not ganhou[0]:
+            while proximo_maior_valor[0] > maior_valor[0] and proximo_maior_valor[1] == maior_valor[1] and proximo_maior_valor[2] and not ganhou[0]:
                 clone_matriz = copy.deepcopy(matriz_pecas)
                 colunas_proibidas.append(maior_valor[1])
                 jogada_antiga = maior_valor
                 maior_valor = calcula_jogada_de_maior_valor(matriz_valores_vermelho, matriz_valores_amarelo, colunas_proibidas)
+                if maior_valor == (0, 0, False):
+                    maior_valor = jogada_antiga
+                    break
                 pos_jogada = adiciona_peca(clone_matriz, maior_valor[1], 2)
                 if pos_jogada != (-1, -1):
                     print(f'Jogada recalculada => Antes: {jogada_antiga}; Próxima jogada: {proximo_maior_valor}; Atual: {maior_valor}')
@@ -627,17 +642,16 @@ def start_game():
                 if state_mouse[0] and not validate_press:
                     validate_press = True
                     current_pos = pygame.mouse.get_pos()
-                    if current_pos[1] < 50:
-                        coluna_selecionada = -1
-                        for (idx, intevalo) in enumerate(intervalo_colunas):
-                            if intevalo[0] <= current_pos[0] <= intevalo[1]:
-                                coluna_selecionada = idx
-                                break
-                        if coluna_selecionada != -1:
-                            pos_adicionada = adiciona_peca(matriz_pecas, coluna_selecionada, jogador_atual)
-                            if pos_adicionada != (-1, -1):
-                                jogador_atual = 2
-                                jogador_atual_texto = font.render("AMARELO", False, "yellow")
+                    coluna_selecionada = -1
+                    for (idx, intevalo) in enumerate(intervalo_colunas):
+                        if intevalo[0] <= current_pos[0] <= intevalo[1]:
+                            coluna_selecionada = idx
+                            break
+                    if coluna_selecionada != -1:
+                        pos_adicionada = adiciona_peca(matriz_pecas, coluna_selecionada, jogador_atual)
+                        if pos_adicionada != (-1, -1):
+                            jogador_atual = 2
+                            jogador_atual_texto = font.render("AMARELO", False, "yellow")
                 elif not state_mouse[0]:
                     validate_press = False
             # IA

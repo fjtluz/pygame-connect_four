@@ -513,6 +513,15 @@ def simula_jogada(matriz_pecas: list[list[int]], jogada_a_frente=0):
 
 
 def decide_coluna(matriz: list[list]):
+    f"""
+        @deprecated
+        
+        Método original de decisão de jogada, porém foi inutilizado
+        a favor do método *simula_jogada*, por ser baseado exclusivamente em cenários, 
+        ser de difícil previsibilidade e ser centralizado em minimizar o adversário.
+        
+        Mantido por questão de histórico 
+    """
     coluna_selecionada = -1
 
     # min mode

@@ -441,32 +441,59 @@ def simula_jogada(matriz_pecas: list[list[int]], jogada_a_frente=0):
 
         idx_lin -= 1
 
+    # calcula a jogada de maior valor sem coluans proibidas
     maior_valor = calcula_jogada_de_maior_valor(matriz_valores_vermelho, matriz_valores_amarelo, [])
 
     if jogada_a_frente == 0:
+
+        # cria um clone da matriz de peças e simula uma jogada nela
         clone_matriz = copy.deepcopy(matriz_pecas)
         pos_jogada = adiciona_peca(clone_matriz, maior_valor[1], 2)
 
+        # se a jogada for valida
         if pos_jogada != (-1, -1):
+
             colunas_proibidas = []
+
+            # procura qual seria a melhor jogada do próximo turno, com base na matriz clonada
             proximo_maior_valor = simula_jogada(clone_matriz, jogada_a_frente + 1)
+
+            # verifica se a peça jogada gera um fim de jogo
             ganhou = jogo_acabou(clone_matriz)
+
+            # verifica se a valor da próxima jogada é maior que o da jogada atual
+            # e se o próxima jogada ocorre na mesma coluna que a jogada atual
+            # e se está próxima jogada favorece o vermelho
+            # e se, com a jogada atual, o jogo não termina
+            # enquanto isto for verdade, ele tenta calcualr uma jogada melhor
             while proximo_maior_valor[0] > maior_valor[0] and proximo_maior_valor[1] == maior_valor[1] and proximo_maior_valor[2] and not ganhou[0]:
                 clone_matriz = copy.deepcopy(matriz_pecas)
+
+                # adiciona a coluna atual na lista de colunas proibidas
+                # para não ser escolhida na próxima iteração
                 colunas_proibidas.append(maior_valor[1])
+
+                # armazena a jogada antiga e recalcula a jogada maior valor com base nas colunas proibidas
                 jogada_antiga = maior_valor
                 maior_valor = calcula_jogada_de_maior_valor(matriz_valores_vermelho, matriz_valores_amarelo, colunas_proibidas)
+
+                # se não foi encontrado uma jogada válida, escolhe-se a jogada antiga
                 if maior_valor == (0, 0, False):
                     maior_valor = jogada_antiga
                     break
+
+                # simula a adição desta jogada recalculada com intuito de checar sua validade
                 pos_jogada = adiciona_peca(clone_matriz, maior_valor[1], 2)
                 if pos_jogada != (-1, -1):
+                    # se for válida
+                    #   informa no console qual era a jogada antiga, o que essa jogada acarretaria e qual foi a jogada recalculada, respectivamente
+                    #   ressimula a próxima jogada com base na jogada recalculada
+                    #   recalcula se a jogada acarreta numa vitória para o amarelo
                     print(f'Jogada recalculada => Antes: {jogada_antiga}; Próxima jogada: {proximo_maior_valor}; Atual: {maior_valor}')
                     proximo_maior_valor = simula_jogada(clone_matriz, jogada_a_frente + 1)
                     ganhou = jogo_acabou(clone_matriz)
                 else:
                     colunas_proibidas.append(maior_valor[1])
-
         else:
             maior_valor = calcula_jogada_de_maior_valor(matriz_valores_vermelho, matriz_valores_amarelo, [maior_valor[1]])
 
